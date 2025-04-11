@@ -442,6 +442,21 @@ select avg(price) as avgprice from product group by category_id having avgprice<
 
 
 
+-- Data Control Language
+
+use book;
+
+grant select,insert,update  on book.* to "test1";
+
+revoke select,insert,update on book.* from "test1";
+
+
+
+SELECT user, host FROM mysql.user WHERE user = 'test1';
+
+
+SHOW GRANTS FOR 'test1'@'%';
+
 
 
 
