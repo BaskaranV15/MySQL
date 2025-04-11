@@ -458,6 +458,16 @@ SELECT user, host FROM mysql.user WHERE user = 'test1';
 SHOW GRANTS FOR 'test1'@'%';
 
 
+-- Transaction Control Language
 
+start transaction;
+UPDATE transfer SET balance = balance - 1000 WHERE tid = 101;
+savepoint debit;
+UPDATE transfer SET balance = balance + 1000 WHERE tid = 100;
+savepoint credit;
+UPDATE transfer SET balance = balance - 1000 WHERE tid in (101,102);
+savepoint DEMO;
+rollback to DEMO;
+commit;
 
  
