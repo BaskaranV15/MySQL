@@ -1,5 +1,203 @@
 # MySQL
+# SQL Execution Order
+### Logical Query Processing Order
 
+Even though we **write** SQL queries in one order, the database **executes** them in a completely different order internally.
+
+---
+
+## The Write Order (What You Type)
+
+```sql
+SELECT    occupation, AVG(salary)
+FROM      employee_salary
+WHERE     occupation LIKE '%Manager%'
+GROUP BY  occupation
+HAVING    AVG(salary) > 25000
+ORDER BY  AVG(salary)
+LIMIT     2;
+```
+
+---
+
+## The Execution Order (What the DB Actually Does)
+
+```
+1. FROM
+2. JOIN
+3. WHERE
+4. GROUP BY
+5. HAVING
+6. SELECT
+7. DISTINCT
+8. ORDER BY
+9. LIMIT
+```
+
+---
+
+## Step-by-Step Breakdown
+
+### 1. `FROM` — Identify the Data Source
+The database first figures out **which table(s)** to pull data from.
+
+```sql
+FROM employee_salary
+```
+> At this point, the full table is loaded into memory for processing.
+
+---
+
+### 2. `JOIN` — Combine Tables
+If multiple tables are involved, they are merged here before any filtering.
+
+```sql
+FROM employee_demographics AS dem
+INNER JOIN employee_salary AS sal ON dem.employee_id = sal.employee_id
+```
+> Joining happens before WHERE — so filters in WHERE apply to the already-joined result.
+
+---
+
+### 3. `WHERE` — Filter Rows
+Rows that don't match the condition are removed **before grouping**.
+
+```sql
+WHERE occupation LIKE '%Manager%'
+```
+> ⚠️ You **cannot** use a `SELECT` alias here — aliases don't exist yet at this stage.
+
+---
+
+### 4. `GROUP BY` — Group the Rows
+Remaining rows are grouped together by the specified column(s).
+
+```sql
+GROUP BY occupation
+```
+> After this step, the result is no longer individual rows — it's groups.
+
+---
+
+### 5. `HAVING` — Filter Groups
+Filters are applied to the **groups** (not individual rows). This is why aggregate functions work here but not in `WHERE`.
+
+```sql
+HAVING AVG(salary) > 25000
+```
+> `HAVING` is the post-grouping version of `WHERE`.
+
+---
+
+### 6. `SELECT` — Pick the Columns
+Only now does the database evaluate which columns and expressions to return.
+
+```sql
+SELECT occupation, AVG(salary)
+```
+> Aliases defined here (`AS avg_sal`) are **not available** in `WHERE`, `GROUP BY`, or `HAVING` — they're created too late.
+
+---
+
+### 7. `DISTINCT` — Remove Duplicates
+After SELECT, duplicate rows are removed if `DISTINCT` is used.
+
+```sql
+SELECT DISTINCT gender FROM employee_demographics
+```
+
+---
+
+### 8. `ORDER BY` — Sort the Results
+Sorting happens near the end — and it **can** use `SELECT` aliases since SELECT has already run.
+
+```sql
+ORDER BY AVG(salary)
+```
+
+---
+
+### 9. `LIMIT` — Restrict the Output
+Finally, the result set is trimmed to the requested number of rows.
+
+```sql
+LIMIT 2
+```
+
+---
+
+## Why This Matters — Common Mistakes Explained
+
+### ❌ Using a SELECT alias in WHERE
+```sql
+-- WRONG: 'avg_sal' doesn't exist yet when WHERE runs
+SELECT AVG(salary) AS avg_sal
+FROM employee_salary
+WHERE avg_sal > 50000;
+```
+```sql
+-- CORRECT: Use the expression directly in WHERE
+SELECT AVG(salary) AS avg_sal
+FROM employee_salary
+HAVING AVG(salary) > 50000;
+```
+
+---
+
+### ❌ Using aggregate functions in WHERE
+```sql
+-- WRONG: WHERE runs before GROUP BY, so no aggregates exist yet
+SELECT occupation
+FROM employee_salary
+WHERE AVG(salary) > 50000
+GROUP BY occupation;
+```
+```sql
+-- CORRECT: Use HAVING for post-grouping filters
+SELECT occupation
+FROM employee_salary
+GROUP BY occupation
+HAVING AVG(salary) > 50000;
+```
+
+---
+
+### ✅ ORDER BY can use SELECT aliases
+```sql
+-- VALID: ORDER BY runs after SELECT, so aliases are available
+SELECT occupation, AVG(salary) AS avg_sal
+FROM employee_salary
+GROUP BY occupation
+ORDER BY avg_sal DESC;
+```
+
+---
+
+## Visual Summary
+
+```
+FROM          →  Load the table(s)
+  ↓
+JOIN          →  Merge tables together
+  ↓
+WHERE         →  Filter individual rows        ← no aliases, no aggregates
+  ↓
+GROUP BY      →  Bucket rows into groups
+  ↓
+HAVING        →  Filter groups                 ← aggregates allowed here
+  ↓
+SELECT        →  Choose columns & expressions  ← aliases are born here
+  ↓
+DISTINCT      →  Remove duplicate rows
+  ↓
+ORDER BY      →  Sort the results              ← aliases usable here
+  ↓
+LIMIT         →  Cut to N rows
+```
+
+---
+
+*Understanding execution order is the key to writing correct, efficient SQL — and debugging queries that don't behave as expected.*
 
 
 # 🗃️ SQL Quick Reference Guide
